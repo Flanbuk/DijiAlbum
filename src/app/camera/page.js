@@ -56,10 +56,12 @@ export default function CameraPage() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Hardware States
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
+  const [isTorchSupported, setIsTorchSupported] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(1.0);
 
   // Capture States
@@ -96,6 +98,23 @@ export default function CameraPage() {
 
   const videoRef = useRef(null);
   const viewfinderRef = useRef(null);
+
+  // Detect active admin auth session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAdmin(!!session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAdmin(!!session);
+    });
+
+    return () => {
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      }
+    };
+  }, []);
 
   // Load remaining shots, photos, event, and guest details
   useEffect(() => {
@@ -225,6 +244,7 @@ export default function CameraPage() {
     setErrorMessage('');
     setIsReady(false); // Trigger visual blink transition
     setIsTorchOn(false); // Reset torch state when switching stream
+    setIsTorchSupported(false); // Reset torch support
     setCurrentZoom(1.0); // Reset zoom level
 
     if (stream) {
@@ -244,6 +264,17 @@ export default function CameraPage() {
       
       setStream(mediaStream);
       setHasPermission(true);
+
+      // Check track torch capabilities safely
+      try {
+        const track = mediaStream.getVideoTracks()[0];
+        if (track) {
+          const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+          setIsTorchSupported(!!capabilities.torch);
+        }
+      } catch (e) {
+        console.warn('Could not read track capabilities:', e);
+      }
     } catch (err) {
       console.error('Kamera başlatılamadı:', err);
       // Fallback to any camera if environment stream fails
@@ -255,6 +286,16 @@ export default function CameraPage() {
           });
           setStream(fallbackStream);
           setHasPermission(true);
+
+          try {
+            const track = fallbackStream.getVideoTracks()[0];
+            if (track) {
+              const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+              setIsTorchSupported(!!capabilities.torch);
+            }
+          } catch (e) {
+            console.warn('Could not read fallback track capabilities:', e);
+          }
           return;
         } catch (e) {}
       }
@@ -470,12 +511,26 @@ export default function CameraPage() {
 
   // Hardware Torch Flash Controller
   const toggleTorch = useCallback(async () => {
+    if (!isTorchSupported) {
+      setUploadError('Bu kamerada flaş desteklenmiyor');
+      setTimeout(() => {
+        setUploadError('');
+      }, 3000);
+      return;
+    }
+
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
     if (!track) return;
 
     try {
-      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      let capabilities = {};
+      try {
+        capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+      } catch (e) {
+        console.warn('Could not read capabilities:', e);
+      }
+
       if (capabilities.torch) {
         const nextTorchState = !isTorchOn;
         await track.applyConstraints({
@@ -496,7 +551,7 @@ export default function CameraPage() {
         setUploadError('');
       }, 3000);
     }
-  }, [stream, isTorchOn]);
+  }, [stream, isTorchOn, isTorchSupported]);
 
   // Hardware Zoom (Focus) Controller (0.5x - 1.2x)
   const changeZoom = useCallback(async (zoomVal) => {
@@ -649,7 +704,18 @@ export default function CameraPage() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.filter = FILTER_MODES[currentFilterIndex].filter;
+          
+          if (isFrontCamera) {
+            ctx.translate(width, 0);
+            ctx.scale(-1, 1);
+          }
+          
           ctx.drawImage(video, 0, 0, width, height);
+
+          if (isFrontCamera) {
+            // Restore context transformations to prevent mirrored texts
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+          }
 
           // Clear filter to draw text overlays in native bright colors
           ctx.filter = 'none';
@@ -855,7 +921,10 @@ export default function CameraPage() {
               autoPlay
               playsInline
               muted
-              style={{ filter: FILTER_MODES[currentFilterIndex].filter }}
+              style={{ 
+                filter: FILTER_MODES[currentFilterIndex].filter,
+                transform: isFrontCamera ? 'scaleX(-1)' : 'none'
+              }}
               className="absolute inset-0 w-full h-full object-cover scale-[1.01] transition-all duration-300"
               onPlay={() => setIsReady(true)}
             />
@@ -955,24 +1024,29 @@ export default function CameraPage() {
                 Fotoğraflarınız Tamamdır!
               </h2>
               <p className="font-sans text-[11px] text-neutral-400 leading-relaxed max-w-[260px] mb-8">
-                Bu etkinlik için ayrılan tüm kareleri başarıyla doldurdunuz. Albümün açılmasını ve anıların ortaya çıkmasını bekleyebilirsiniz.
+                {isAdmin 
+                  ? "Bu etkinlik için ayrılan tüm kareleri başarıyla doldurdunuz. Albümün açılmasını ve anıların ortaya çıkmasını bekleyebilirsiniz."
+                  : "Çektiğiniz harika kareler etkinlik sahibine iletildi. Albüm hazır olduğunda etkinlik sahibi sizinle paylaşacaktır."
+                }
               </p>
               
-              <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    if (activeEventId && activeEventId !== '00000000-0000-0000-0000-000000000000') {
-                      window.location.href = `/album/${activeEventId}`;
-                    } else {
-                      window.location.href = '/';
-                    }
-                  }}
-                  className="w-full py-3 bg-neutral-100 hover:bg-white text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-md transform-gpu"
-                >
-                  Albüme Git 🖼️
-                </motion.button>
-              </div>
+              {isAdmin && (
+                <div className="flex flex-col gap-2 w-full max-w-[200px]">
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => {
+                      if (activeEventId && activeEventId !== '00000000-0000-0000-0000-000000000000') {
+                        window.location.href = `/album/${activeEventId}`;
+                      } else {
+                        window.location.href = '/';
+                      }
+                    }}
+                    className="w-full py-3 bg-neutral-100 hover:bg-white text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-md transform-gpu"
+                  >
+                    Albüme Git 🖼️
+                  </motion.button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -987,8 +1061,12 @@ export default function CameraPage() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={toggleTorch}
-            className={`p-1 rounded-lg transition-colors cursor-pointer ${
-              isTorchOn ? 'text-[#FF9900] drop-shadow-[0_0_6px_rgba(255,153,0,0.5)]' : 'text-neutral-400 hover:text-neutral-200'
+            className={`p-1 rounded-lg transition-all cursor-pointer ${
+              !isTorchSupported 
+                ? 'text-neutral-700 opacity-55 hover:text-neutral-600' 
+                : isTorchOn 
+                  ? 'text-[#FF9900] drop-shadow-[0_0_6px_rgba(255,153,0,0.5)]' 
+                  : 'text-neutral-400 hover:text-neutral-200'
             }`}
             title="Flash Toggle"
           >

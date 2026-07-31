@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Compass, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function JoinPage() {
+export default function JoinPage({ params }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  const params = useParams();
-  const eventId = params?.event_id;
+  const resolvedParams = use(params);
+  const eventId = resolvedParams?.event_id;
 
   useEffect(() => {
     if (!eventId) {

@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,9 +15,9 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 
-export default function AlbumPage() {
-  const params = useParams();
-  const eventId = params?.id;
+export default function AlbumPage({ params }) {
+  const resolvedParams = use(params);
+  const eventId = resolvedParams?.id;
 
   // States
   const [eventData, setEventData] = useState(null);
@@ -206,7 +205,7 @@ export default function AlbumPage() {
         <motion.button
           whileTap={{ scale: 0.93 }}
           onClick={handleShareLink}
-          className="p-3 bg-[#121212]/90 border border-neutral-900 rounded-xl text-neutral-400 hover:text-white shadow-lg cursor-pointer backdrop-blur-md flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-wider transition-colors"
+          className="p-3 bg-[#121212]/90 border border-neutral-900 rounded-xl text-neutral-400 hover:text-white shadow-lg cursor-pointer backdrop-blur-none md:backdrop-blur-md flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-wider transition-colors"
           title="Albüm Linkini Paylaş"
         >
           {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
@@ -342,7 +341,7 @@ export default function AlbumPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setActivePhoto(null)}
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-none md:backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
           >
             <motion.div
               layoutId={`polaroid-container-${activePhoto.id}`}
