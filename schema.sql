@@ -58,3 +58,8 @@ CREATE POLICY "Allow public select from raw_photos" ON storage.objects
 FOR SELECT
 TO public
 USING (bucket_id = 'raw_photos');
+
+-- Disable RLS on application data tables to ensure frictionless anonymous guest access
+ALTER TABLE public.events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.guests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.photos DISABLE ROW LEVEL SECURITY;
