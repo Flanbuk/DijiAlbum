@@ -7,12 +7,12 @@ import { supabase } from '@/lib/supabase';
 
 const FILTER_MODES = [
   { id: 'normal', name: 'Normal', filter: 'none', label: 'N' },
-  { id: 'yesilcam', name: 'Yeşilçam', filter: 'sepia(0.5) contrast(1.2) saturate(0.85)', label: 'Y' },
-  { id: 'karanlik', name: 'Karanlık Oda', filter: 'grayscale(1) contrast(1.4)', label: 'K' },
+  { id: 'yesilcam', name: 'Yeşilçam', filter: 'sepia(0.6) contrast(1.1) brightness(0.9) hue-rotate(-10deg)', label: 'Y' },
+  { id: 'karanlik', name: 'Karanlık Oda', filter: 'grayscale(100%) contrast(1.2) brightness(0.9)', label: 'K' },
   { id: 'polaroid', name: 'Polaroid', filter: 'contrast(0.9) saturate(0.7) brightness(1.1)', label: 'P' },
-  { id: 'disko', name: "Disko 90'lar", filter: 'saturate(1.5) hue-rotate(-20deg) contrast(1.2)', label: 'D' },
-  { id: 'gumus', name: 'Gümüş Vizör', filter: 'saturate(0.4) sepia(0.2) hue-rotate(180deg)', label: 'G' },
-  { id: 'altin', name: 'Altın Saat', filter: 'sepia(0.4) saturate(1.4) brightness(1.1) contrast(1.1)', label: 'A' }
+  { id: 'disko', name: "Disko 90'lar", filter: 'contrast(1.3) saturate(1.5) brightness(1.1) hue-rotate(15deg)', label: 'D' },
+  { id: 'gumus', name: 'Gümüş Vizör', filter: 'grayscale(40%) contrast(1.1) brightness(1.2) saturate(60%)', label: 'G' },
+  { id: 'altin', name: 'Altın Saat', filter: 'sepia(0.3) contrast(1.1) brightness(1.1) saturate(1.3) hue-rotate(-15deg)', label: 'A' }
 ];
 
 const ZOOM_OPTIONS = [
@@ -731,15 +731,35 @@ export default function CameraPage() {
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.filter = FILTER_MODES[currentFilterIndex].filter;
-          
+          // Perform translations for front camera first
           if (isFrontCamera) {
             ctx.translate(width, 0);
             ctx.scale(-1, 1);
           } else {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
           }
+
+          // Apply exact CSS filter mapping
+          const filterName = FILTER_MODES[currentFilterIndex].name.toUpperCase();
+          let currentFilterString = FILTER_MODES[currentFilterIndex].filter;
           
+          if (filterName === 'NORMAL') {
+            currentFilterString = 'none';
+          } else if (filterName === 'YEŞİLÇAM') {
+            currentFilterString = 'sepia(0.6) contrast(1.1) brightness(0.9) hue-rotate(-10deg)';
+          } else if (filterName === 'KARANLIK ODA') {
+            currentFilterString = 'grayscale(100%) contrast(1.2) brightness(0.9)';
+          } else if (filterName === 'ALTIN SAAT') {
+            currentFilterString = 'sepia(0.3) contrast(1.1) brightness(1.1) saturate(1.3) hue-rotate(-15deg)';
+          } else if (filterName === 'GÜMÜŞ VİZÖR') {
+            currentFilterString = 'grayscale(40%) contrast(1.1) brightness(1.2) saturate(60%)';
+          } else if (filterName === "DİSKO 90'LAR" || filterName === "DISKO 90'LAR") {
+            currentFilterString = 'contrast(1.3) saturate(1.5) brightness(1.1) hue-rotate(15deg)';
+          }
+
+          ctx.filter = currentFilterString;
+
+          // Draw the video frame
           ctx.drawImage(video, 0, 0, width, height);
 
           // Restore context transformations to prevent mirrored texts
