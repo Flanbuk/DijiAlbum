@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, AlertTriangle, Film, RefreshCw, Compass, Lock, Zap } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,34 @@ const ZOOM_OPTIONS = [
   { label: '0.5x', value: 1.0 },
   { label: '1.2x', value: 1.2 }
 ];
+
+const FilterSelector = memo(({ currentFilterIndex, onSelectFilter }) => {
+  return (
+    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-2 bg-black/60 border border-neutral-800/50 py-3 px-1.5 rounded-full backdrop-blur-xs shadow-lg transform-gpu scroll-gpu">
+      {FILTER_MODES.map((mode, index) => {
+        const isActive = currentFilterIndex === index;
+        return (
+          <button
+            key={mode.id}
+            onClick={() => onSelectFilter(index)}
+            title={mode.name}
+            className={`w-6.5 h-6.5 rounded-full flex items-center justify-center font-mono text-[9px] font-bold relative cursor-pointer transform-gpu premium-transition ${
+              isActive
+                ? 'bg-amber-500 text-neutral-950 shadow-[0_0_8px_rgba(245,158,11,0.6)] scale-110 font-black'
+                : 'bg-neutral-900/80 text-neutral-500 hover:text-neutral-300 border border-neutral-800'
+            }`}
+          >
+            {mode.label}
+            {isActive && (
+              <span className="absolute -left-1 w-0.5 h-1.5 bg-amber-500 rounded-r-xs" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+FilterSelector.displayName = 'FilterSelector';
 
 export default function CameraPage() {
   // Camera States
@@ -365,7 +393,7 @@ export default function CameraPage() {
   };
 
   // Mechanical Click Sound (Dial Switch)
-  const playClickSound = () => {
+  const playClickSound = useCallback(() => {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
@@ -387,10 +415,10 @@ export default function CameraPage() {
     } catch (e) {
       console.warn('Click synthesis failed:', e);
     }
-  };
+  }, []);
 
   // Deep Analog Mirror Shutter Sound
-  const playShutterSound = () => {
+  const playShutterSound = useCallback(() => {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
@@ -438,10 +466,10 @@ export default function CameraPage() {
     } catch (e) {
       console.warn('Shutter synthesis failed:', e);
     }
-  };
+  }, []);
 
   // Hardware Torch Flash Controller
-  const toggleTorch = async () => {
+  const toggleTorch = useCallback(async () => {
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
     if (!track) return;
@@ -468,10 +496,10 @@ export default function CameraPage() {
         setUploadError('');
       }, 3000);
     }
-  };
+  }, [stream, isTorchOn]);
 
   // Hardware Zoom (Focus) Controller (0.5x - 1.2x)
-  const changeZoom = async (zoomVal) => {
+  const changeZoom = useCallback(async (zoomVal) => {
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
     if (!track) return;
@@ -503,17 +531,17 @@ export default function CameraPage() {
         setUploadError('');
       }, 3000);
     }
-  };
+  }, [stream, playClickSound]);
 
   // Camera Face Toggle
-  const toggleCameraFacing = () => {
+  const toggleCameraFacing = useCallback(() => {
     const nextFacing = !isFrontCamera;
     setIsFrontCamera(nextFacing);
     initCamera(nextFacing);
-  };
+  }, [isFrontCamera]);
 
   // Mode Selection Dial
-  const selectFilter = (index) => {
+  const selectFilter = useCallback((index) => {
     playClickSound();
     setCurrentFilterIndex(index);
     setActiveToast(FILTER_MODES[index].name);
@@ -524,10 +552,10 @@ export default function CameraPage() {
     toastTimeoutRef.current = setTimeout(() => {
       setActiveToast('');
     }, 1200);
-  };
+  }, [playClickSound]);
 
   // Base64 to Blob helper
-  const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
+  const base64ToBlob = useCallback((base64, mimeType = 'image/jpeg') => {
     const byteString = atob(base64.split(',')[1]);
     const ab = new ArrayBuffer(byteString.length);
     const ia = new Uint8Array(ab);
@@ -535,10 +563,10 @@ export default function CameraPage() {
       ia[i] = byteString.charCodeAt(i);
     }
     return new Blob([ab], { type: mimeType });
-  };
+  }, []);
 
   // Dynamic Background Cloud Sync Upload
-  const uploadPhotoInBackground = async (base64Data, nextShots) => {
+  const uploadPhotoInBackground = useCallback(async (base64Data, nextShots) => {
     try {
       const eventId = activeEventId;
       const guestId = activeGuestId || '00000000-0000-0000-0000-000000000000';
@@ -594,10 +622,10 @@ export default function CameraPage() {
         setUploadError('');
       }, 4000);
     }
-  };
+  }, [activeEventId, activeGuestId, currentFilterIndex, base64ToBlob]);
 
   // Photo Capture Trigger
-  const handleShutterClick = () => {
+  const handleShutterClick = useCallback(() => {
     if (shutterCount <= 0 || isFlashing || !isReady) return;
 
     playShutterSound();
@@ -679,9 +707,9 @@ export default function CameraPage() {
     setTimeout(() => {
       setIsFlashing(false);
     }, 500);
-  };
+  }, [shutterCount, isFlashing, isReady, currentFilterIndex, guestName, uploadPhotoInBackground, playShutterSound]);
 
-  const handleResetRoll = () => {
+  const handleResetRoll = useCallback(() => {
     setShutterCount(12);
     setCapturedPhotos([]);
     localStorage.setItem('dijialbum_remaining_shots', '12');
@@ -689,7 +717,7 @@ export default function CameraPage() {
     if (activeGuestId) {
       supabase.from('guests').update({ remaining_shots: 12 }).eq('id', activeGuestId).then();
     }
-  };
+  }, [activeGuestId]);
 
   return (
     <main className="relative flex flex-col items-center justify-between w-full min-h-screen bg-[#0A0A0A] overflow-hidden select-none px-4 py-6 md:py-8">
@@ -798,25 +826,7 @@ export default function CameraPage() {
           </div>
 
           {/* Vertical Mode Selector Dial */}
-          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-2 bg-black/60 border border-neutral-800/50 py-3 px-1.5 rounded-full backdrop-blur-xs shadow-lg">
-            {FILTER_MODES.map((mode, index) => (
-              <button
-                key={mode.id}
-                onClick={() => selectFilter(index)}
-                title={mode.name}
-                className={`w-6.5 h-6.5 rounded-full flex items-center justify-center font-mono text-[9px] font-bold transition-all duration-200 relative cursor-pointer ${
-                  currentFilterIndex === index
-                    ? 'bg-amber-500 text-neutral-950 shadow-[0_0_8px_rgba(245,158,11,0.6)] scale-110 font-black'
-                    : 'bg-neutral-900/80 text-neutral-500 hover:text-neutral-300 border border-neutral-800'
-                }`}
-              >
-                {mode.label}
-                {currentFilterIndex === index && (
-                  <span className="absolute -left-1 w-0.5 h-1.5 bg-amber-500 rounded-r-xs" />
-                )}
-              </button>
-            ))}
-          </div>
+          <FilterSelector currentFilterIndex={currentFilterIndex} onSelectFilter={selectFilter} />
 
           {/* Retro Filters Toast Overlay */}
           <AnimatePresence>
@@ -937,22 +947,32 @@ export default function CameraPage() {
           
           {/* Out of film shots screen */}
           {hasPermission === true && shutterCount === 0 && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-8 bg-neutral-950/90 text-center backdrop-blur-xs">
-              <Film className="w-10 h-10 text-neutral-500 mb-4 animate-bounce" />
-              <h2 className="font-serif text-xl font-medium text-neutral-200 mb-2">
-                Film Rulosu Doldu
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-8 bg-neutral-950/95 text-center backdrop-blur-md">
+              <div className="w-16 h-16 rounded-full bg-amber-500/5 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-6 shadow-[0_0_15px_rgba(245,158,11,0.05)]">
+                <Film className="w-7 h-7" />
+              </div>
+              <h2 className="font-serif text-2xl font-semibold text-neutral-100 mb-3 tracking-wide">
+                Fotoğraflarınız Tamamdır!
               </h2>
-              <p className="font-mono text-[10px] text-neutral-500 leading-relaxed max-w-[200px] mb-6">
-                Tüm çekim haklarınızı kullandınız. Bir sonraki rulo için deklanşörü yenileyin.
+              <p className="font-sans text-[11px] text-neutral-400 leading-relaxed max-w-[260px] mb-8">
+                Bu etkinlik için ayrılan tüm kareleri başarıyla doldurdunuz. Albümün açılmasını ve anıların ortaya çıkmasını bekleyebilirsiniz.
               </p>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleResetRoll}
-                className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 border border-neutral-800 text-neutral-300 font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Ruloyu Sıfırla
-              </motion.button>
+              
+              <div className="flex flex-col gap-2 w-full max-w-[200px]">
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => {
+                    if (activeEventId && activeEventId !== '00000000-0000-0000-0000-000000000000') {
+                      window.location.href = `/album/${activeEventId}`;
+                    } else {
+                      window.location.href = '/';
+                    }
+                  }}
+                  className="w-full py-3 bg-neutral-100 hover:bg-white text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-md transform-gpu"
+                >
+                  Albüme Git 🖼️
+                </motion.button>
+              </div>
             </div>
           )}
         </div>
