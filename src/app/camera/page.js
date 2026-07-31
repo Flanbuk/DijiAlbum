@@ -269,12 +269,14 @@ export default function CameraPage() {
     }
 
     try {
+      const idealRatio = typeof window !== 'undefined' && window.innerWidth && window.innerHeight
+        ? window.innerWidth / window.innerHeight
+        : 0.75;
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: frontCameraFlag ? 'user' : 'environment',
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-          aspectRatio: { ideal: 0.5625 }
+          aspectRatio: { ideal: idealRatio }
         },
         audio: false
       });

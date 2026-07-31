@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -184,7 +185,7 @@ export default function AlbumPage({ params }) {
   };
 
   return (
-    <main className="relative flex flex-col items-center justify-start w-full min-h-screen bg-[#0A0A0A] px-4 py-8 select-none text-neutral-100 font-sans">
+    <main className="relative flex flex-col items-center justify-start w-full min-h-[100dvh] bg-[#0A0A0A] px-4 py-8 select-none text-neutral-100 font-sans">
       {/* Heavy Blurred Cover Image Background layer */}
       {eventData?.cover_image_url && (
         <div 
@@ -246,7 +247,7 @@ export default function AlbumPage({ params }) {
         </div>
       ) : (
         /* STANDALONE CONTENT VIEW */
-        <div className="z-20 w-full max-w-4xl flex flex-col gap-8 pb-32">
+        <div className="z-20 w-full max-w-4xl flex flex-col gap-8 pb-40 transform-gpu will-change-transform">
           
           {/* Magazine Cover styled Header hero details */}
           <header className="w-full flex flex-col items-center text-center mt-12 pb-6 border-b border-neutral-900/60">
@@ -303,11 +304,13 @@ export default function AlbumPage({ params }) {
                     >
                       {/* Filtered Photo Image */}
                       <div className="relative overflow-hidden w-full aspect-square bg-neutral-900 border border-neutral-300/40">
-                        <img
+                        <Image
                           src={photo.image_url}
                           alt={`Photo by ${photo.guests?.guest_name || 'Guest'}`}
-                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                          priority={index < 4}
                         />
                       </div>
 
@@ -349,11 +352,14 @@ export default function AlbumPage({ params }) {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Main Photo */}
-              <div className="w-full aspect-square overflow-hidden bg-neutral-900 border border-neutral-300">
-                <img
+              <div className="relative w-full aspect-square overflow-hidden bg-neutral-900 border border-neutral-300">
+                <Image
                   src={activePhoto.image_url}
                   alt="Expanded moment"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 400px"
+                  className="object-cover"
+                  priority
                 />
               </div>
 
