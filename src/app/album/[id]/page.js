@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -15,9 +16,9 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 
-export default function AlbumPage({ params }) {
-  const resolvedParams = use(params);
-  const eventId = resolvedParams?.id;
+export default function AlbumPage() {
+  const params = useParams();
+  const eventId = params?.id;
 
   // States
   const [eventData, setEventData] = useState(null);
@@ -246,7 +247,7 @@ export default function AlbumPage({ params }) {
         </div>
       ) : (
         /* STANDALONE CONTENT VIEW */
-        <div className="z-20 w-full max-w-4xl flex flex-col gap-8 pb-16">
+        <div className="z-20 w-full max-w-4xl flex flex-col gap-8 pb-32">
           
           {/* Magazine Cover styled Header hero details */}
           <header className="w-full flex flex-col items-center text-center mt-12 pb-6 border-b border-neutral-900/60">
@@ -288,44 +289,44 @@ export default function AlbumPage({ params }) {
             /* ASYMMETRIC MASONRY POLAROID LIST */
             <div className="columns-2 md:columns-3 gap-6 w-full break-inside-avoid">
               <AnimatePresence mode="popLayout">
-                {photos.map((photo, index) => (
-                  <motion.div
-                    key={photo.id}
-                    layoutId={`polaroid-container-${photo.id}`}
-                    initial={{ opacity: 0, scale: 0.92, y: 15 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                    onClick={() => setActivePhoto(photo)}
-                    className="inline-block w-full bg-[#F5F5F5] p-3 pb-8 shadow-xl border border-neutral-200/20 rounded-xs select-none hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-zoom-in mb-6 relative group"
-                    style={{
-                      transform: `rotate(${(index % 2 === 0 ? 1 : -1)}deg)`
-                    }}
-                  >
-                    {/* Filtered Photo Image */}
-                    <div className="relative overflow-hidden w-full aspect-square bg-neutral-900 border border-neutral-300/40">
-                      <img
-                        src={photo.image_url}
-                        alt={`Photo by ${photo.guests?.guest_name || 'Guest'}`}
-                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                        loading="lazy"
-                      />
-                    </div>
+                {photos.map((photo, index) => {
+                  const rotationAngle = index % 2 === 0 ? 1 : -1;
+                  return (
+                    <motion.div
+                      key={photo.id}
+                      layoutId={`polaroid-container-${photo.id}`}
+                      initial={{ opacity: 0, scale: 0.92, y: 15, rotate: rotationAngle }}
+                      animate={{ opacity: 1, scale: 1, y: 0, rotate: rotationAngle }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                      onClick={() => setActivePhoto(photo)}
+                      className="inline-block w-full bg-[#F5F5F5] p-3 pb-8 shadow-xl border border-neutral-200/20 rounded-xs select-none hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-zoom-in mb-6 relative group transform-gpu scroll-gpu"
+                    >
+                      {/* Filtered Photo Image */}
+                      <div className="relative overflow-hidden w-full aspect-square bg-neutral-900 border border-neutral-300/40">
+                        <img
+                          src={photo.image_url}
+                          alt={`Photo by ${photo.guests?.guest_name || 'Guest'}`}
+                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                          loading="lazy"
+                        />
+                      </div>
 
-                    {/* Polaroid Footer Text Details */}
-                    <div className="w-full mt-3.5 flex items-center justify-between px-0.5">
-                      <span className="font-serif text-[11px] italic text-neutral-800 tracking-wide truncate pr-2 max-w-[120px]">
-                        * {photo.guests?.guest_name || 'Misafir'} *
-                      </span>
-                      
-                      {photo.filter_used && (
-                        <span className="font-mono text-[7.5px] font-bold text-neutral-400 bg-neutral-900/5 border border-neutral-900/10 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
-                          {photo.filter_used}
+                      {/* Polaroid Footer Text Details */}
+                      <div className="w-full mt-3.5 flex items-center justify-between px-0.5">
+                        <span className="font-serif text-[11px] italic text-neutral-800 tracking-wide truncate pr-2 max-w-[120px]">
+                          * {photo.guests?.guest_name || 'Misafir'} *
                         </span>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
+                        
+                        {photo.filter_used && (
+                          <span className="font-mono text-[7.5px] font-bold text-neutral-400 bg-neutral-900/5 border border-neutral-900/10 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                            {photo.filter_used}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
             </div>
           )}

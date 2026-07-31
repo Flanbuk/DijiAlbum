@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Compass, Film, AlertTriangle, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function RevealPage({ params }) {
-  const resolvedParams = use(params);
-  const eventId = resolvedParams?.event_id;
+export default function RevealPage() {
+  const params = useParams();
+  const eventId = params?.event_id;
 
   const [photos, setPhotos] = useState([]);
   const [eventName, setEventName] = useState("DijiAlbum");
