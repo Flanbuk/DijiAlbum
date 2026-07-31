@@ -184,7 +184,7 @@ export default function AlbumPage({ params }) {
   };
 
   return (
-    <main className="relative flex flex-col items-center justify-start w-full min-h-screen bg-[#0A0A0A] overflow-y-auto px-4 py-8 select-none text-neutral-100 font-sans">
+    <main className="relative flex flex-col items-center justify-start w-full min-h-screen bg-[#0A0A0A] px-4 py-8 select-none text-neutral-100 font-sans">
       {/* Heavy Blurred Cover Image Background layer */}
       {eventData?.cover_image_url && (
         <div 

@@ -338,6 +338,52 @@ export default function AdminPage() {
     }
   };
 
+  // Bypassed event creation (MVP/Direct creation)
+  const handleDirectCreateEvent = async (e) => {
+    e.preventDefault();
+    setSessionError('');
+
+    if (!eventNameInput.trim()) {
+      setSessionError('Lütfen etkinlik ismini girin.');
+      return;
+    }
+
+    if (!user) {
+      setSessionError('Oturum başlatılamadı: Kullanıcı bilgisi eksik.');
+      return;
+    }
+
+    setPaymentProcessing(true);
+
+    try {
+      const pkg = getPackageDetails(selectedType);
+      const { data, error } = await supabase
+        .from('events')
+        .insert({
+          user_id: user.id,
+          name: eventNameInput.trim(),
+          event_type: selectedType,
+          max_guests: pkg.maxGuests,
+          price: null, // Price is null for bypassed flow
+          active: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setActiveEvent(data);
+      setEventNameInput('');
+      setActiveStep('dashboard');
+      fetchEvents();
+    } catch (err) {
+      console.error('Doğrudan seans oluşturulamadı:', err);
+      setSessionError('Seans oluşturulamadı. Lütfen veritabanı bağlantınızı kontrol edin.');
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
   // Complete payment and automatically create session on Supabase (using price matrix mapping)
   const handleCompletePayment = async (e) => {
     e.preventDefault();
@@ -479,7 +525,7 @@ export default function AdminPage() {
   const pkgDetails = getPackageDetails(selectedType);
 
   return (
-    <main className="relative flex flex-col items-center justify-start w-full min-h-screen bg-[#0A0A0A] overflow-y-auto px-4 py-8 select-none text-neutral-100 font-sans">
+    <main className="relative flex flex-col items-center justify-start w-full min-h-screen bg-[#0A0A0A] px-4 py-8 select-none text-neutral-100 font-sans">
       {/* Moving Grain overlay */}
       <div className="grain-overlay" />
 
@@ -809,7 +855,7 @@ export default function AdminPage() {
                 
                 <input
                   type="text"
-                  placeholder="Örn: Ahmet & Buse'nin Düğünü"
+                  placeholder="Etkinlik Adı"
                   value={eventNameInput}
                   onChange={(e) => setEventNameInput(e.target.value)}
                   className="w-full bg-neutral-950 border border-neutral-900 focus:border-amber-500/50 text-neutral-200 font-sans text-sm px-4 py-3 rounded-xl outline-none transition-colors shadow-inner"
@@ -891,17 +937,17 @@ export default function AdminPage() {
               <div className="flex flex-col gap-2 mt-2">
                 <motion.button
                   whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    if (!eventNameInput.trim()) {
-                      setSessionError('Lütfen bir etkinlik ismi belirleyin.');
-                      return;
-                    }
-                    setSessionError('');
-                    setActiveStep('checkout');
-                  }}
-                  className="w-full py-4 bg-neutral-100 hover:bg-white text-neutral-950 font-mono text-[11px] font-bold uppercase tracking-widest rounded-2xl shadow-lg cursor-pointer transition-all"
+                  onClick={handleDirectCreateEvent}
+                  className="w-full py-4 bg-neutral-100 hover:bg-white text-neutral-950 font-mono text-[11px] font-bold uppercase tracking-widest rounded-2xl shadow-lg cursor-pointer transition-all flex items-center justify-center gap-2"
                 >
-                  Ödemeye Geç ➔
+                  {paymentProcessing ? (
+                    <>
+                      <Compass className="w-4 h-4 animate-spin" />
+                      <span>Etkinlik Oluşturuluyor...</span>
+                    </>
+                  ) : (
+                    <span>Etkinliği Oluştur 🚀</span>
+                  )}
                 </motion.button>
                 <button
                   onClick={() => { setActiveStep('dashboard'); setSessionError(''); }}
