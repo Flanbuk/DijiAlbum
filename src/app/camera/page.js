@@ -216,6 +216,20 @@ export default function CameraPage() {
     };
   }, []);
 
+  // Bind stream to video element dynamically and safely
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      if (stream) {
+        if (video.srcObject !== stream) {
+          video.srcObject = stream;
+        }
+      } else {
+        video.srcObject = null;
+      }
+    }
+  }, [stream]);
+
   // Save photos to local storage when capturing
   useEffect(() => {
     if (capturedPhotos.length > 0) {
@@ -239,7 +253,7 @@ export default function CameraPage() {
   };
 
   // Initialize Camera (with dynamic facing mode support and blink reset)
-  const initCamera = async (frontCameraFlag) => {
+  const initCamera = useCallback(async (frontCameraFlag) => {
     setHasPermission(null);
     setErrorMessage('');
     setIsReady(false); // Trigger visual blink transition
@@ -250,14 +264,17 @@ export default function CameraPage() {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: frontCameraFlag ? 'user' : 'environment',
           width: { ideal: 1080 },
-          height: { ideal: 1440 },
-          aspectRatio: { ideal: 0.75 }
+          height: { ideal: 1920 },
+          aspectRatio: { ideal: 0.5625 }
         },
         audio: false
       });
@@ -307,7 +324,7 @@ export default function CameraPage() {
         setErrorMessage('Kamera cihazı bulunamadı veya başka bir uygulama tarafından kullanılıyor.');
       }
     }
-  };
+  }, [stream]);
 
   // Onboarding screen form submit handler
   const handleOnboardingSubmit = async (e) => {
@@ -590,10 +607,19 @@ export default function CameraPage() {
 
   // Camera Face Toggle
   const toggleCameraFacing = useCallback(() => {
+    playClickSound();
     const nextFacing = !isFrontCamera;
     setIsFrontCamera(nextFacing);
+    
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
     initCamera(nextFacing);
-  }, [isFrontCamera]);
+  }, [isFrontCamera, stream, playClickSound, initCamera]);
 
   // Mode Selection Dial
   const selectFilter = useCallback((index) => {
@@ -708,14 +734,14 @@ export default function CameraPage() {
           if (isFrontCamera) {
             ctx.translate(width, 0);
             ctx.scale(-1, 1);
+          } else {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
           }
           
           ctx.drawImage(video, 0, 0, width, height);
 
-          if (isFrontCamera) {
-            // Restore context transformations to prevent mirrored texts
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-          }
+          // Restore context transformations to prevent mirrored texts
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
 
           // Clear filter to draw text overlays in native bright colors
           ctx.filter = 'none';
@@ -912,12 +938,7 @@ export default function CameraPage() {
           {/* Video Feed */}
           {hasPermission === true && (
             <video
-              ref={(el) => {
-                videoRef.current = el;
-                if (el && stream && el.srcObject !== stream) {
-                  el.srcObject = stream;
-                }
-              }}
+              ref={videoRef}
               autoPlay
               playsInline
               muted
