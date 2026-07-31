@@ -364,7 +364,6 @@ export default function AdminPage() {
           name: eventNameInput.trim(),
           event_type: selectedType,
           max_guests: pkg.maxGuests,
-          price: null, // Price is null for bypassed flow
           active: true
         })
         .select()
@@ -377,8 +376,8 @@ export default function AdminPage() {
       setActiveStep('dashboard');
       fetchEvents();
     } catch (err) {
-      console.error('Doğrudan seans oluşturulamadı:', err);
-      setSessionError('Seans oluşturulamadı. Lütfen veritabanı bağlantınızı kontrol edin.');
+      console.error('Supabase Detaylı Hata:', err.message, err.details, err.hint, JSON.stringify(err));
+      setSessionError(`Seans oluşturulamadı: ${err.message || 'Lütfen veritabanı bağlantınızı kontrol edin.'} (${err.details || ''})`);
     } finally {
       setPaymentProcessing(false);
     }
@@ -441,8 +440,8 @@ export default function AdminPage() {
         }, 1800);
 
       } catch (err) {
-        console.error('Ödeme sonrası seans oluşturulamadı:', err);
-        setSessionError('Ödeme alındı fakat seans oluşturulamadı. Lütfen veritabanı bağlantınızı kontrol edin.');
+        console.error('Supabase Detaylı Hata:', err.message, err.details, err.hint, JSON.stringify(err));
+        setSessionError(`Ödeme alındı fakat seans oluşturulamadı: ${err.message || 'Lütfen veritabanı bağlantınızı kontrol edin.'} (${err.details || ''})`);
       } finally {
         setPaymentProcessing(false);
       }
