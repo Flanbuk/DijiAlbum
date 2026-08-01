@@ -744,34 +744,166 @@ export default function CameraView() {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
           }
 
-          // Apply exact CSS filter mapping
-          const filterName = FILTER_MODES[currentFilterIndex].name.toUpperCase();
-          let currentFilterString = FILTER_MODES[currentFilterIndex].filter;
-          
-          if (filterName === 'NORMAL') {
-            currentFilterString = 'none';
-          } else if (filterName === 'YEŞİLÇAM') {
-            currentFilterString = 'sepia(0.6) contrast(1.1) brightness(0.9) hue-rotate(-10deg)';
-          } else if (filterName === 'KARANLIK ODA') {
-            currentFilterString = 'grayscale(100%) contrast(1.2) brightness(0.9)';
-          } else if (filterName === 'ALTIN SAAT') {
-            currentFilterString = 'sepia(0.3) contrast(1.1) brightness(1.1) saturate(1.3) hue-rotate(-15deg)';
-          } else if (filterName === 'GÜMÜŞ VİZÖR') {
-            currentFilterString = 'grayscale(40%) contrast(1.1) brightness(1.2) saturate(60%)';
-          } else if (filterName === "DİSKO 90'LAR" || filterName === "DISKO 90'LAR") {
-            currentFilterString = 'contrast(1.3) saturate(1.5) brightness(1.1) hue-rotate(15deg)';
-          }
-
-          ctx.filter = currentFilterString;
-
-          // Draw the video frame
+          // Draw the video frame (raw, no ctx.filter)
           ctx.drawImage(video, 0, 0, width, height);
 
           // Restore context transformations to prevent mirrored texts
           ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-          // Clear filter to draw text overlays in native bright colors
-          ctx.filter = 'none';
+          // 3. PIXEL MANIPULATION (IMAGE PROCESSING FOR IOS COMPATIBILITY)
+          const filterName = FILTER_MODES[currentFilterIndex].name.toUpperCase();
+          if (filterName !== 'NORMAL') {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            const len = data.length;
+
+            for (let i = 0; i < len; i += 4) {
+              const r = data[i];
+              const g = data[i+1];
+              const b = data[i+2];
+
+              let sr = r;
+              let sg = g;
+              let sb = b;
+
+              if (filterName === 'YEŞİLÇAM') {
+                // Sepia standard coefficients
+                let tr = r * 0.393 + g * 0.769 + b * 0.189;
+                let tg = r * 0.349 + g * 0.686 + b * 0.168;
+                let tb = r * 0.272 + g * 0.534 + b * 0.131;
+
+                // Sepia 0.6 mix
+                sr = tr * 0.6 + r * 0.4;
+                sg = tg * 0.6 + g * 0.4;
+                sb = tb * 0.6 + b * 0.4;
+
+                // Contrast 1.1
+                sr = 1.1 * (sr - 128) + 128;
+                sg = 1.1 * (sg - 128) + 128;
+                sb = 1.1 * (sb - 128) + 128;
+
+                // Brightness 0.9
+                sr *= 0.9;
+                sg *= 0.9;
+                sb *= 0.9;
+
+                // Hue-rotate -10deg warm shift
+                sr += 5;
+                sb -= 5;
+              } else if (filterName === 'KARANLIK ODA') {
+                // Grayscale
+                let gray = r * 0.299 + g * 0.587 + b * 0.114;
+
+                // Contrast 1.2
+                gray = 1.2 * (gray - 128) + 128;
+
+                // Brightness 0.9
+                gray *= 0.9;
+
+                sr = gray;
+                sg = gray;
+                sb = gray;
+              } else if (filterName === 'ALTIN SAAT') {
+                // Sepia 0.3
+                let tr = r * 0.393 + g * 0.769 + b * 0.189;
+                let tg = r * 0.349 + g * 0.686 + b * 0.168;
+                let tb = r * 0.272 + g * 0.534 + b * 0.131;
+
+                sr = tr * 0.3 + r * 0.7;
+                sg = tg * 0.3 + g * 0.7;
+                sb = tb * 0.3 + b * 0.7;
+
+                // Contrast 1.1
+                sr = 1.1 * (sr - 128) + 128;
+                sg = 1.1 * (sg - 128) + 128;
+                sb = 1.1 * (sb - 128) + 128;
+
+                // Brightness 1.1
+                sr *= 1.1;
+                sg *= 1.1;
+                sb *= 1.1;
+
+                // Saturate 1.3
+                let gray = sr * 0.299 + sg * 0.587 + sb * 0.114;
+                sr = gray + 1.3 * (sr - gray);
+                sg = gray + 1.3 * (sg - gray);
+                sb = gray + 1.3 * (sb - gray);
+
+                // Hue-rotate -15deg warm golden shift
+                sr += 12;
+                sg += 4;
+                sb -= 10;
+              } else if (filterName === 'GÜMÜŞ VİZÖR') {
+                // Grayscale 40% / desaturate
+                let gray = r * 0.299 + g * 0.587 + b * 0.114;
+                sr = r * 0.6 + gray * 0.4;
+                sg = g * 0.6 + gray * 0.4;
+                sb = b * 0.6 + gray * 0.4;
+
+                // Contrast 1.1
+                sr = 1.1 * (sr - 128) + 128;
+                sg = 1.1 * (sg - 128) + 128;
+                sb = 1.1 * (sb - 128) + 128;
+
+                // Brightness 1.2
+                sr *= 1.2;
+                sg *= 1.2;
+                sb *= 1.2;
+
+                // Saturate 60%
+                let gray2 = sr * 0.299 + sg * 0.587 + sb * 0.114;
+                sr = gray2 + 0.6 * (sr - gray2);
+                sg = gray2 + 0.6 * (sg - gray2);
+                sb = gray2 + 0.6 * (sb - gray2);
+
+                // Cool silver/blue tint
+                sb += 5;
+              } else if (filterName === "DİSKO 90'LAR" || filterName === "DISKO 90'LAR") {
+                // Contrast 1.3
+                sr = 1.3 * (r - 128) + 128;
+                sg = 1.3 * (g - 128) + 128;
+                sb = 1.3 * (b - 128) + 128;
+
+                // Saturate 1.5
+                let gray = sr * 0.299 + sg * 0.587 + sb * 0.114;
+                sr = gray + 1.5 * (sr - gray);
+                sg = gray + 1.5 * (sg - gray);
+                sb = gray + 1.5 * (sb - gray);
+
+                // Brightness 1.1
+                sr *= 1.1;
+                sg *= 1.1;
+                sb *= 1.1;
+
+                // Hue-rotate 15deg pink/cyan shift
+                sr -= 5;
+                sg += 8;
+                sb += 12;
+              } else if (filterName === 'POLAROID') {
+                // Contrast 0.9
+                sr = 0.9 * (r - 128) + 128;
+                sg = 0.9 * (g - 128) + 128;
+                sb = 0.9 * (b - 128) + 128;
+
+                // Saturate 0.7
+                let gray = sr * 0.299 + sg * 0.587 + sb * 0.114;
+                sr = gray + 0.7 * (sr - gray);
+                sg = gray + 0.7 * (sg - gray);
+                sb = gray + 0.7 * (sb - gray);
+
+                // Brightness 1.1
+                sr *= 1.1;
+                sg *= 1.1;
+                sb *= 1.1;
+              }
+
+              // Fast clamping
+              data[i] = sr < 0 ? 0 : (sr > 255 ? 255 : sr);
+              data[i+1] = sg < 0 ? 0 : (sg > 255 ? 255 : sg);
+              data[i+2] = sb < 0 ? 0 : (sb > 255 ? 255 : sb);
+            }
+            ctx.putImageData(imageData, 0, 0);
+          }
 
           // 1. Draw Guest Signature Watermark (Bottom Left Corner)
           const signatureStr = `* ${guestName} *`;
