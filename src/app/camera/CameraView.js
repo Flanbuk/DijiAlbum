@@ -269,21 +269,15 @@ export default function CameraView() {
     }
 
     try {
-      // Choose constraints based on front/back camera to prevent crop/zoom on front camera
+      // Choose constraints based on front/back camera to prevent crop/zoom on sensors
       let videoConstraints;
       if (frontCameraFlag) {
-        // Front camera: absolutely NO extra size/aspectRatio parameters, only facingMode: 'user'
         videoConstraints = {
           facingMode: 'user'
         };
       } else {
-        // Back camera: request dynamic aspect ratio matching screen
-        const idealRatio = typeof window !== 'undefined' && window.innerWidth && window.innerHeight
-          ? window.innerWidth / window.innerHeight
-          : 0.75;
         videoConstraints = {
-          facingMode: 'environment',
-          aspectRatio: { ideal: idealRatio }
+          facingMode: 'environment'
         };
       }
 
