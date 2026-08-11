@@ -56,7 +56,6 @@ export default function CameraView() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   
   // Hardware States
   const [isFrontCamera, setIsFrontCamera] = useState(false);
@@ -99,22 +98,7 @@ export default function CameraView() {
   const videoRef = useRef(null);
   const viewfinderRef = useRef(null);
 
-  // Detect active admin auth session
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAdmin(!!session);
-    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAdmin(!!session);
-    });
-
-    return () => {
-      if (subscription && typeof subscription.unsubscribe === 'function') {
-        subscription.unsubscribe();
-      }
-    };
-  }, []);
 
   // Load remaining shots, photos, event, and guest details
   useEffect(() => {
@@ -1193,30 +1177,9 @@ export default function CameraView() {
               <h2 className="font-serif text-2xl font-semibold text-neutral-100 mb-3 tracking-wide">
                 Fotoğraflarınız Tamamdır!
               </h2>
-              <p className="font-sans text-[11px] text-neutral-400 leading-relaxed max-w-[260px] mb-8">
-                {isAdmin 
-                  ? "Bu etkinlik için ayrılan tüm kareleri başarıyla doldurdunuz. Albümün açılmasını ve anıların ortaya çıkmasını bekleyebilirsiniz."
-                  : "Çektiğiniz harika kareler etkinlik sahibine iletildi. Albüm hazır olduğunda etkinlik sahibi sizinle paylaşacaktır."
-                }
+              <p className="font-sans text-[11px] text-neutral-400 leading-relaxed max-w-[260px] mb-4">
+                Çektiğiniz harika kareler etkinlik sahibine iletildi. Albüm hazır olduğunda etkinlik sahibi sizinle paylaşacaktır.
               </p>
-              
-              {isAdmin && (
-                <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                  <motion.button
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => {
-                      if (activeEventId && activeEventId !== '00000000-0000-0000-0000-000000000000') {
-                        window.location.href = `/album/${activeEventId}`;
-                      } else {
-                        window.location.href = '/';
-                      }
-                    }}
-                    className="w-full py-3 bg-neutral-100 hover:bg-white text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-md transform-gpu"
-                  >
-                    Albüme Git 🖼️
-                  </motion.button>
-                </div>
-              )}
             </div>
           )}
         </div>
