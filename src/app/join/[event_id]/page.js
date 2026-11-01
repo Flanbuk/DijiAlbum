@@ -15,21 +15,21 @@ export default function JoinPage({ params }) {
   const eventId = resolvedParams?.event_id;
 
   useEffect(() => {
-    if (!eventId) {
-      setError('Etkinlik anahtarı bulunamadı.');
-      setLoading(false);
-      return;
-    }
-
-    // UUID regex check to prevent DB cast errors
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(eventId)) {
-      setError('Geçersiz seans anahtarı.');
-      setLoading(false);
-      return;
-    }
-
     const checkEventStatus = async () => {
+      if (!eventId) {
+        setError('Etkinlik anahtarı bulunamadı.');
+        setLoading(false);
+        return;
+      }
+
+      // UUID regex check to prevent DB cast errors
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(eventId)) {
+        setError('Geçersiz seans anahtarı.');
+        setLoading(false);
+        return;
+      }
+
       try {
         const { data, error: fetchErr } = await supabase
           .from('events')

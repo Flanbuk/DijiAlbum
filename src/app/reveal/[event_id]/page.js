@@ -18,23 +18,6 @@ export default function RevealPage({ params }) {
 
   const pageSize = 12;
 
-  const fetchEventDetails = async () => {
-    if (!eventId) return;
-    try {
-      const { data } = await supabase
-        .from('events')
-        .select('name')
-        .eq('id', eventId)
-        .single();
-      
-      if (data?.name) {
-        setEventName(data.name);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const fetchPhotos = async (pageNum = 0) => {
     if (!eventId) return;
     try {
@@ -69,8 +52,27 @@ export default function RevealPage({ params }) {
   };
 
   useEffect(() => {
-    fetchEventDetails();
-    fetchPhotos(0);
+    if (!eventId) return;
+
+    const loadInitialData = async () => {
+      try {
+        const { data } = await supabase
+          .from('events')
+          .select('name')
+          .eq('id', eventId)
+          .single();
+        
+        if (data?.name) {
+          setEventName(data.name);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      await fetchPhotos(0);
+    };
+
+    loadInitialData();
   }, [eventId]);
 
   const handleLoadMore = () => {

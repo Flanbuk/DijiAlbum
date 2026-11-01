@@ -88,8 +88,8 @@ export default function CameraView() {
 
   // Gyroscope & Orientation States
   const [orientation, setOrientation] = useState({ beta: 0, gamma: 0 });
-  const [isOptimumAngle, setIsOptimumAngle] = useState(false);
-  const [vibrated, setVibrated] = useState(false);
+  const isOptimumAngle = orientation.beta >= 75 && orientation.beta <= 95 && orientation.gamma >= -10 && orientation.gamma <= 10;
+  const hasVibratedRef = useRef(false);
   const [gyroSupported, setGyroSupported] = useState(null);
   const [iOSPermissionRequired, setIOSPermissionRequired] = useState(false);
   const [hasSensorPermission, setHasSensorPermission] = useState(null);
@@ -97,6 +97,118 @@ export default function CameraView() {
 
   const videoRef = useRef(null);
   const viewfinderRef = useRef(null);
+
+  // Seeding fallback mock
+  const ensureMockData = async () => {
+    try {
+      const mockId = '00000000-0000-0000-0000-000000000000';
+      const { data: event } = await supabase.from('events').select('id').eq('id', mockId).maybeSingle();
+      if (!event) {
+        await supabase.from('events').insert({ id: mockId, name: "Ahmet & Buse's Wedding", active: true });
+      }
+      const { data: guest } = await supabase.from('guests').select('id').eq('id', mockId).maybeSingle();
+      if (!guest) {
+        await supabase.from('guests').insert({ id: mockId, event_id: mockId, guest_name: 'Mock Guest', remaining_shots: 12 });
+      }
+    } catch (e) {}
+  };
+
+  // Initialize Camera (with dynamic facing mode support and blink reset)
+  const initCamera = useCallback(async (frontCameraFlag) => {
+    setHasPermission(null);
+    setErrorMessage('');
+    setIsReady(false); // Trigger visual blink transition
+    setIsTorchOn(false); // Reset torch state when switching stream
+    setIsTorchSupported(false); // Reset torch support
+    setCurrentZoom(1.0); // Reset zoom level
+
+    setStream((prevStream) => {
+      if (prevStream) {
+        prevStream.getTracks().forEach(track => track.stop());
+      }
+      return null;
+    });
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    try {
+      // Choose constraints based on front/back camera to prevent crop/zoom on sensors
+      let videoConstraints;
+      if (frontCameraFlag) {
+        videoConstraints = {
+          facingMode: 'user'
+        };
+      } else {
+        videoConstraints = {
+          facingMode: 'environment'
+        };
+      }
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false
+      });
+      
+      setStream(mediaStream);
+      setHasPermission(true);
+
+      // Check track torch capabilities safely
+      try {
+        const track = mediaStream.getVideoTracks()[0];
+        if (track) {
+          const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+          setIsTorchSupported(!!capabilities.torch);
+        }
+      } catch (e) {
+        console.warn('Could not read track capabilities:', e);
+      }
+    } catch (err) {
+      console.error('Kamera başlatılamadı:', err);
+      // Fallback to any camera if environment stream fails
+      if (!frontCameraFlag) {
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+          setStream(fallbackStream);
+          setHasPermission(true);
+
+          try {
+            const track = fallbackStream.getVideoTracks()[0];
+            if (track) {
+              const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+              setIsTorchSupported(!!capabilities.torch);
+            }
+          } catch (e) {
+            console.warn('Could not read fallback track capabilities:', e);
+          }
+          return;
+        } catch (e) {}
+      }
+
+      setHasPermission(false);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setErrorMessage('Kamera erişim izni reddedildi. Lütfen tarayıcı ayarlarından izin verin.');
+      } else {
+        setErrorMessage('Kamera cihazı bulunamadı veya başka bir uygulama tarafından kullanılıyor.');
+      }
+    }
+  }, []);
+
+  // Device Orientation Handler
+  const handleOrientation = useCallback((event) => {
+    if (event.beta !== null && event.gamma !== null) {
+      setGyroSupported(true);
+      const beta = Math.round(event.beta);
+      const gamma = Math.round(event.gamma);
+      setOrientation({ beta, gamma });
+      setIsSimulating(false);
+    } else {
+      setGyroSupported(false);
+    }
+  }, []);
 
 
 
@@ -173,8 +285,10 @@ export default function CameraView() {
       typeof DeviceOrientationEvent.requestPermission === 'function';
     
     if (iosCheck) {
-      setIOSPermissionRequired(true);
-      setGyroSupported(true);
+      setTimeout(() => {
+        setIOSPermissionRequired(true);
+        setGyroSupported(true);
+      }, 0);
     } else {
       window.addEventListener('deviceorientation', handleOrientation);
       
@@ -221,102 +335,6 @@ export default function CameraView() {
     }
   }, [capturedPhotos]);
 
-  // Seeding fallback mock
-  const ensureMockData = async () => {
-    try {
-      const mockId = '00000000-0000-0000-0000-000000000000';
-      const { data: event } = await supabase.from('events').select('id').eq('id', mockId).maybeSingle();
-      if (!event) {
-        await supabase.from('events').insert({ id: mockId, name: "Ahmet & Buse's Wedding", active: true });
-      }
-      const { data: guest } = await supabase.from('guests').select('id').eq('id', mockId).maybeSingle();
-      if (!guest) {
-        await supabase.from('guests').insert({ id: mockId, event_id: mockId, guest_name: 'Mock Guest', remaining_shots: 12 });
-      }
-    } catch (e) {}
-  };
-
-  // Initialize Camera (with dynamic facing mode support and blink reset)
-  const initCamera = useCallback(async (frontCameraFlag) => {
-    setHasPermission(null);
-    setErrorMessage('');
-    setIsReady(false); // Trigger visual blink transition
-    setIsTorchOn(false); // Reset torch state when switching stream
-    setIsTorchSupported(false); // Reset torch support
-    setCurrentZoom(1.0); // Reset zoom level
-
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    try {
-      // Choose constraints based on front/back camera to prevent crop/zoom on sensors
-      let videoConstraints;
-      if (frontCameraFlag) {
-        videoConstraints = {
-          facingMode: 'user'
-        };
-      } else {
-        videoConstraints = {
-          facingMode: 'environment'
-        };
-      }
-
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-        audio: false
-      });
-      
-      setStream(mediaStream);
-      setHasPermission(true);
-
-      // Check track torch capabilities safely
-      try {
-        const track = mediaStream.getVideoTracks()[0];
-        if (track) {
-          const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-          setIsTorchSupported(!!capabilities.torch);
-        }
-      } catch (e) {
-        console.warn('Could not read track capabilities:', e);
-      }
-    } catch (err) {
-      console.error('Kamera başlatılamadı:', err);
-      // Fallback to any camera if environment stream fails
-      if (!frontCameraFlag) {
-        try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-          });
-          setStream(fallbackStream);
-          setHasPermission(true);
-
-          try {
-            const track = fallbackStream.getVideoTracks()[0];
-            if (track) {
-              const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-              setIsTorchSupported(!!capabilities.torch);
-            }
-          } catch (e) {
-            console.warn('Could not read fallback track capabilities:', e);
-          }
-          return;
-        } catch (e) {}
-      }
-
-      setHasPermission(false);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setErrorMessage('Kamera erişim izni reddedildi. Lütfen tarayıcı ayarlarından izin verin.');
-      } else {
-        setErrorMessage('Kamera cihazı bulunamadı veya başka bir uygulama tarafından kullanılıyor.');
-      }
-    }
-  }, [stream]);
-
   // Onboarding screen form submit handler
   const handleOnboardingSubmit = async (e) => {
     e.preventDefault();
@@ -360,19 +378,6 @@ export default function CameraView() {
     }
   };
 
-  // Device Orientation Handler
-  const handleOrientation = (event) => {
-    if (event.beta !== null && event.gamma !== null) {
-      setGyroSupported(true);
-      const beta = Math.round(event.beta);
-      const gamma = Math.round(event.gamma);
-      setOrientation({ beta, gamma });
-      setIsSimulating(false);
-    } else {
-      setGyroSupported(false);
-    }
-  };
-
   // Request iOS Sensor Permissions
   const requestSensorPermission = async () => {
     if (
@@ -397,23 +402,19 @@ export default function CameraView() {
     }
   };
 
-  // Angle Evaluation
+  // Vibration when reaching optimum angle
   useEffect(() => {
-    const { beta, gamma } = orientation;
-    const isOptimum = beta >= 75 && beta <= 95 && gamma >= -10 && gamma <= 10;
-    setIsOptimumAngle(isOptimum);
-
-    if (isOptimum) {
-      if (!vibrated) {
+    if (isOptimumAngle) {
+      if (!hasVibratedRef.current) {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           navigator.vibrate(50);
         }
-        setVibrated(true);
+        hasVibratedRef.current = true;
       }
     } else {
-      setVibrated(false);
+      hasVibratedRef.current = false;
     }
-  }, [orientation, vibrated]);
+  }, [isOptimumAngle]);
 
   // Desktop Mouse Movement Simulator Fallback
   const handleMouseMove = (e) => {
